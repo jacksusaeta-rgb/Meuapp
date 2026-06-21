@@ -13,6 +13,17 @@
 <meta name="apple-mobile-web-app-title" content="Conexão">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
+<script>
+  window.OneSignalDeferred = window.OneSignalDeferred || [];
+  OneSignalDeferred.push(async function (OneSignal) {
+    await OneSignal.init({ appId: "e7c9dd22-626a-4843-8d54-34b311c6793c" });
+    try {
+      window.__oneSignalNotifPerm = OneSignal.User.PushSubscription.optedIn ? "granted" : "default";
+    } catch { window.__oneSignalNotifPerm = "default"; }
+    if (window.__onOneSignalReady) window.__onOneSignalReady();
+  });
+</script>
 <style>
 :root{
   --bg:#0f172a;
@@ -691,7 +702,7 @@ function screenSettings() {
       <button class="full-btn" data-action="request-notif">
         ${state.notifPerm === "granted" ? icon("bell", 16) + " Notificações ativadas" : icon("bellOff", 16) + " Ativar notificações"}
       </button>
-      <p class="note">Funcionam enquanto este site estiver aberto no navegador, mesmo em outra aba. Para receber avisos com o site fechado ou com os dados móveis sem o navegador aberto, seria necessário um app nativo com servidor de push — isso está fora do que esta página consegue fazer sozinha.</p>
+      <p class="note">Conectado ao OneSignal — falta só um último passo no servidor pra funcionar com o app fechado de verdade. Por enquanto, funciona com o site aberto (mesmo em outra aba).</p>
     </div>
 
     <div>
@@ -811,6 +822,13 @@ function closeChat() {
 
 /* ============================== identity / onboarding actions ============================== */
 
+function tagOneSignalWithIp(ip) {
+  window.OneSignalDeferred = window.OneSignalDeferred || [];
+  window.OneSignalDeferred.push(async function (OneSignal) {
+    try { await OneSignal.User.addTag("ip", ip); } catch {}
+  });
+}
+
 async function submitOnboarding() {
   const username = (document.getElementById("onb-username-input").value || "").trim().slice(0, 20);
   const ip = document.getElementById("onb-ip-input").value;
@@ -833,6 +851,7 @@ async function submitOnboarding() {
   showToast("Perfil criado!");
   mountShell();
   startLiveLoops();
+  tagOneSignalWithIp(ip);
 }
 
 async function onOnboardingAvatarSelected(file) {
@@ -1133,11 +1152,19 @@ async function restoreBackup(file) {
 }
 
 async function requestNotifications() {
-  if (typeof Notification === "undefined") return showToast("Notificações não são suportadas aqui.");
-  const perm = await Notification.requestPermission();
-  state.notifPerm = perm;
-  renderContent();
-  showToast(perm === "granted" ? "Notificações ativadas." : "Permissão não concedida.");
+  window.OneSignalDeferred = window.OneSignalDeferred || [];
+  window.OneSignalDeferred.push(async function (OneSignal) {
+    try {
+      await OneSignal.Notifications.requestPermission();
+      const optedIn = OneSignal.User.PushSubscription.optedIn;
+      state.notifPerm = optedIn ? "granted" : "denied";
+      if (state.identity) await OneSignal.User.addTag("ip", state.identity.ip);
+    } catch {
+      state.notifPerm = "denied";
+    }
+    renderContent();
+    showToast(state.notifPerm === "granted" ? "Notificações ativadas." : "Permissão não concedida.");
+  });
 }
 
 function clearMyDataConfirm() {
@@ -1195,11 +1222,7 @@ async function pollConversations() {
       const last = arr[arr.length - 1];
       if (last.sender !== state.identity.ip && state.activeChat !== ip) {
         const name = (state.directory[ip] && state.directory[ip].username) || ip;
-        if (document.hidden && state.notifPerm === "granted" && typeof Notification !== "undefined") {
-          try { new Notification(name, { body: last.type === "text" ? last.content : `enviou um(a) ${last.type}` }); } catch {}
-        } else {
-          showToast(`Nova mensagem de ${name}`);
-        }
+        showToast(`Nova mensagem de ${name}`);
       }
       if (state.activeChat === ip) { state.messages = arr; renderContent(); scrollMessagesToBottom(); }
     }
@@ -1291,16 +1314,16 @@ async function init() {
   state.contacts = c || [];
   state.hidden = h || [];
   state.directory = dir || {};
-  if (state.identity) { mountShell(); startLiveLoops(); }
+  if (state.identity) { mountShell(); startLiveLoops(); tagOneSignalWithIp(state.identity.ip); }
   else { mountOnboarding(); }
 }
+window.__onOneSignalReady = function () {
+  if (window.__oneSignalNotifPerm) {
+    state.notifPerm = window.__oneSignalNotifPerm;
+    renderContent();
+  }
+};
 init();
-
-if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => {
-    navigator.serviceWorker.register("sw.js").catch(() => {});
-  });
-}
 </script>
 </body>
 </html>
