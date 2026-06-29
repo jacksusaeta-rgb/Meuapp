@@ -248,12 +248,12 @@ button{font-family:inherit;cursor:pointer;}
 .toggle-btn.off{background:#111008;color:var(--muted);}
 
 /* ---- lightbox ---- */
-.lightbox{position:absolute;inset:0;background:rgba(0,0,0,0.95);z-index:100;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+.lightbox{position:fixed;inset:0;background:rgba(0,0,0,0.97);z-index:999;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;}
 .lightbox img,.lightbox video{max-width:100%;max-height:85vh;object-fit:contain;border-radius:8px;}
-.lightbox-close{position:absolute;top:14px;right:14px;background:rgba(255,255,255,0.1);border:none;color:white;width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;}
+.lightbox-close{position:fixed;top:14px;right:14px;background:rgba(255,255,255,0.15);border:none;color:white;width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;z-index:1000;cursor:pointer;}
 
 /* ---- modal ---- */
-.modal-overlay{position:absolute;inset:0;background:rgba(0,0,0,0.85);z-index:60;display:flex;align-items:flex-end;justify-content:center;}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:60;display:flex;align-items:flex-end;justify-content:center;}
 .modal-box{background:#111008;border:1px solid #3a2e10;border-radius:20px 20px 0 0;padding:20px;width:100%;max-width:480px;max-height:80vh;overflow-y:auto;}
 .modal-title{font-weight:700;font-size:16px;margin-bottom:12px;color:var(--gold);}
 
@@ -887,13 +887,17 @@ function closeLightbox(){const w=document.getElementById("lightbox-wrap");if(w)w
 /* ============================================================
    MODALS
 ============================================================ */
-function openModal(html){const w=document.getElementById("modal-wrap");if(w)w.innerHTML=`<div class="modal-overlay" data-action="close-modal">${html}</div>`;}
+function openModal(html){const w=document.getElementById("modal-wrap");if(w)w.innerHTML=`<div class="modal-overlay" id="modal-overlay-bg">${html}</div>`;
+  // close only when tapping the dark background, not the box itself
+  const bg=document.getElementById("modal-overlay-bg");
+  if(bg)bg.addEventListener("click",e=>{if(e.target===bg)closeModal();});
+}
 function closeModal(){const w=document.getElementById("modal-wrap");if(w)w.innerHTML="";}
 
 function msgMenuHTML(msgId){
   const msg=S.messages.find(m=>m.id===msgId);if(!msg)return"";
   const mine=msg.sender===S.identity.ip;
-  return`<div class="modal-box" onclick="event.stopPropagation()">
+  return`<div class="modal-box">
     <p class="modal-title">Mensagem</p>
     <div class="stack-2">
       <div style="display:flex;gap:8px;margin-bottom:8px">
@@ -910,7 +914,7 @@ function msgMenuHTML(msgId){
 function chatMenuHTML(){
   const isGrp=S.activeChatIsGroup;
   const blocked=S.blocked.includes(S.activeChat);
-  return`<div class="modal-box" onclick="event.stopPropagation()">
+  return`<div class="modal-box">
     <p class="modal-title">Opções da conversa</p>
     <div class="stack-2">
       <button class="full-btn" data-action="toggle-disappearing">${icon("clock",16)} ${S.disappearing?"Desligar":"Ligar"} mensagens temporárias</button>
@@ -923,7 +927,7 @@ function chatMenuHTML(){
 }
 
 function newGroupModalHTML(){
-  return`<div class="modal-box" onclick="event.stopPropagation()">
+  return`<div class="modal-box">
     <p class="modal-title">Novo grupo</p>
     <input id="group-name-input" class="input" placeholder="Nome do grupo" style="margin-bottom:10px"/>
     <p class="label" style="margin-bottom:6px">Selecione os membros</p>
@@ -942,7 +946,7 @@ function newGroupModalHTML(){
 }
 
 function pollCreatorHTML(){
-  return`<div class="modal-box" onclick="event.stopPropagation()">
+  return`<div class="modal-box">
     <p class="modal-title">Nova enquete</p>
     <input id="poll-question" class="input" placeholder="Pergunta" style="margin-bottom:8px"/>
     <div id="poll-options-list">
@@ -955,7 +959,7 @@ function pollCreatorHTML(){
 }
 
 function forwardModalHTML(msgId){
-  return`<div class="modal-box" onclick="event.stopPropagation()">
+  return`<div class="modal-box">
     <p class="modal-title">Encaminhar para...</p>
     <div class="stack-2">
       ${[...S.contacts,...Object.keys(S.groups)].map(id=>{
